@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>African Nations Pro Match Arena & FIFO Queue Architecture</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #080c14;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+
+        .glass-panel {
+            background: rgba(17, 24, 39, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            background: rgba(30, 41, 59, 0.85);
+            border-color: rgba(234, 179, 8, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* 11v11 Realistic Football Pitch with Goal Nets */
+        .football-pitch {
+            background: radial-gradient(circle at center, #065f46 0%, #022c22 100%);
+            border: 2px solid rgba(234, 179, 8, 0.5);
+            position: relative;
+            overflow: hidden;
+            height: 340px;
+        }
+
+        .pitch-lines {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px);
+            background-size: 35px 35px;
+            pointer-events: none;
+        }
+
+        .pitch-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 75px;
+            height: 75px;
+            border: 2px solid rgba(255,255,255,0.25);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .pitch-center-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 2px;
+            background: rgba(255,255,255,0.25);
+            pointer-events: none;
+        }
+
+        /* Goal Posts */
+        .goal-left {
+            position: absolute;
+            left: 0;
+            top: 38%;
+            width: 10px;
+            height: 24%;
+            border: 2px solid #fff;
+            border-left: none;
+            background: rgba(255,255,255,0.1);
+        }
+
+        .goal-right {
+            position: absolute;
+            right: 0;
+            top: 38%;
+            width: 10px;
+            height: 24%;
+            border: 2px solid #fff;
+            border-right: none;
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* Moving Players & Ball */
+        .pitch-player {
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.6);
+            transition: all 1s ease-in-out;
+            z-index: 5;
+        }
+
+        .home-token { background: #eab308; color: #000; border: 1.5px solid #fff; }
+        .away-token { background: #ef4444; color: #fff; border: 1.5px solid #fff; }
+
+        .football {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background: #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #ffffff;
+            transition: all 0.5s ease-in-out;
+            z-index: 10;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #080c14; }
+        ::-webkit-scrollbar-thumb { background: #1f293d; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #eab308; }
+
+        .glow-gold { box-shadow: 0 0 20px rgba(234, 179, 8, 0.2); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-40 glass-panel border-b border-gray-800 px-4 py-3 sm:px-8">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+            
+            <!-- TOP LEFT CORNER: Title + "CLICK HERE TO KNOW YOUR FIRST QUEUE" Button -->
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-yellow-500 via-emerald-600 to-red-600 flex items-center justify-center text-white font-extrabold text-xl shadow-lg glow-gold">
+                        🌍
+                    </div>
+                    <div>
+                        <h1 class="text-base sm:text-lg font-bold tracking-wide bg-gradient-to-r from-yellow-400 via-emerald-300 to-green-400 bg-clip-text text-transparent">
+                            African Nations Pro Arena
+                        </h1>
+                        <p class="text-[11px] text-gray-400">11v11 Real Photos, Multilingual Commentary & Dual-Team FIFO Queue</p>
+                    </div>
+                </div>
+
+                <!-- First Queue Button (Top-Left Positioned) -->
+                <button onclick="scrollToFirstQueue()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 via-yellow-500 to-amber-600 hover:brightness-110 text-gray-950 font-black text-xs shadow-xl flex items-center gap-2 transition active:scale-95 border border-yellow-300 whitespace-nowrap">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>CLICK HERE TO KNOW YOUR FIRST QUEUE 📍</span>
+                </button>
+            </div>
+
+            <!-- TOP RIGHT CORNER: "Why Queue is Necessary" & "What Queues Are For" Buttons -->
+            <div class="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <button onclick="openInfoModal('why')" class="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-yellow-400 border border-yellow-500/40 text-[11px] font-bold transition flex items-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-circle-question text-yellow-400"></i>
+                    <span>Why Queue is Necessary</span>
+                </button>
+                <button onclick="openInfoModal('for')" class="px-3 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold transition flex items-center gap-1.5 shadow-md">
+                    <i class="fa-solid fa-bullseye text-emerald-400"></i>
+                    <span>What Queues Are For & Goal</span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- Main App Layout -->
+    <main class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+
+        <!-- LEFT COLUMN: Selectors, Music Uploader & Ratings Board (7 Cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-5">
+
+            <!-- Fixture & Music Uploader Card -->
+            <div class="glass-panel p-4 sm:p-5 rounded-2xl space-y-3.5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-[10px] text-yellow-400 font-bold uppercase mb-1">Select Home National Team</label>
+                        <select id="homeCountrySelect" onchange="changeMatchFixture()" class="w-full px-3 py-2 rounded-xl bg-gray-900 border border-gray-700 text-xs font-semibold text-white focus:border-yellow-500 focus:outline-none transition">
+                            <option value="GH">🇬🇭 Ghana (Black Stars)</option>
+                            <option value="NG">🇳🇬 Nigeria (Super Eagles)</option>
+                            <option value="SN">🇸🇳 Senegal (Lions of Teranga)</option>
+                            <option value="MA">🇲🇦 Morocco (Atlas Lions)</option>
+                            <option value="EG">🇪🇬 Egypt (Pharaohs)</option>
+                            <option value="CI">🇨🇮 Ivory Coast (Elephants)</option>
+                            <option value="CM">🇨🇲 Cameroon (Indomitable Lions)</option>
+                            <option value="DZ">🇩🇿 Algeria (Desert Foxes)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] text-yellow-400 font-bold uppercase mb-1">Opponent Team (Click to Inspect Properties)</label>
+                        <div onclick="toggleTeamInspection()" id="opponentDisplayBox" class="cursor-pointer w-full px-3 py-2 rounded-xl bg-gray-900/90 border border-emerald-500/40 text-xs font-bold text-emerald-400 flex items-center justify-between transition hover:bg-gray-800">
+                            <span id="opponentNameText">🇳🇬 Nigeria (Super Eagles)</span>
+                            <span class="text-[10px] bg-emerald-500/20 px-2 py-0.5 rounded text-yellow-300">Inspect 🔍</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Background Music Uploader -->
+                <div class="bg-gray-950/80 p-2.5 rounded-xl border border-gray-800 flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <i class="fa-solid fa-music text-yellow-400 text-xs"></i>
+                        <span class="text-[11px] text-gray-300 truncate" id="audioFileName">Upload Match Anthem (MP3)</span>
+                    </div>
+                    <label class="cursor-pointer bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-bold text-[10px] px-2.5 py-1.5 rounded-lg transition whitespace-nowrap">
+                        <i class="fa-solid fa-upload mr-1"></i> Choose Audio
+                        <input type="file" id="bgMusicInput" accept="audio/*" onchange="handleMusicUpload(event)" class="hidden">
+                    </label>
+                    <audio id="matchAudio" loop></audio>
+                </div>
+            </div>
+
+            <!-- Player Ratings Board (5.6 to 8.5 range, with Player Photos) -->
+            <div class="glass-panel p-4 sm:p-5 rounded-2xl flex-1 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 id="ratingsBoardTitle" class="text-sm font-bold text-gray-100 flex items-center gap-2">
+                        <i class="fa-solid fa-star-half-stroke text-yellow-400"></i>
+                        <span>Live Ratings Board (Scale 5.6 - 8.5)</span>
+                    </h2>
+                    <span id="viewingTeamBadge" class="text-[10px] text-yellow-300 bg-yellow-500/20 px-2 py-0.5 rounded border border-yellow-500/30 font-semibold">Viewing Home Team</span>
+                </div>
+
+                <div id="ratingsContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 overflow-y-auto max-h-[260px] pr-1">
+                    <!-- Dynamic Ratings Cards with Photos -->
+                </div>
+            </div>
+
+            <!-- Squad Bench & Substitution Pool with Photos -->
+            <div class="glass-panel p-4 sm:p-5 rounded-2xl flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 id="rosterTitle" class="text-sm font-bold text-gray-100 flex items-center gap-2">
+                        <i class="fa-solid fa-users text-yellow-400"></i>
+                        <span>Squad Bench & Sub Pool</span>
+                    </h2>
+                    <span id="rosterCount" class="text-[10px] text-gray-400 bg-gray-800/80 px-2 py-0.5 rounded border border-gray-700">0 subs</span>
+                </div>
+
+                <div id="rosterContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-2 overflow-y-auto max-h-[160px] pr-1">
+                    <!-- Dynamic Bench Cards with Photos -->
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: 11v11 Pitch with Goals, Commentary & FIFO Queue (5 Cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-5">
+
+            <!-- Live Pitch & Scoreboard Deck -->
+            <div class="glass-panel p-4 rounded-2xl flex flex-col items-center text-center relative overflow-hidden glow-gold border-yellow-500/35">
+                
+                <!-- Match Clock & Status Header -->
+                <div class="w-full flex justify-between items-center mb-2 px-1">
+                    <div class="flex items-center gap-1.5 bg-yellow-500/20 border border-yellow-500/40 px-2.5 py-0.5 rounded-full text-yellow-300 text-[10px] font-semibold">
+                        <span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span>
+                        <span id="matchStatusBadge">AFCON QUALIFIER LIVE</span>
+                    </div>
+                    <span id="matchClock" class="text-xs font-mono text-emerald-400 font-bold bg-black/60 px-2.5 py-0.5 rounded">00' MIN</span>
+                </div>
+
+                <!-- Scoreboard -->
+                <div class="bg-black/80 px-4 py-2.5 rounded-xl border border-white/10 mb-3 w-full flex items-center justify-between">
+                    <div class="text-left flex-1">
+                        <p id="pitchHomeName" class="text-xs font-extrabold text-yellow-400 truncate">🇬🇭 Ghana</p>
+                    </div>
+                    <div class="text-center px-3">
+                        <span id="scoreDisplay" class="text-xl font-black text-white">0 - 0</span>
+                    </div>
+                    <div class="text-right flex-1">
+                        <p id="pitchAwayName" class="text-xs font-extrabold text-red-400 truncate">🇳🇬 Nigeria</p>
+                    </div>
+                </div>
+
+                <!-- 11v11 Visual Interactive Pitch with Goal Nets & Moving Ball -->
+                <div class="football-pitch w-full rounded-xl mb-3 shadow-inner" id="pitchArea">
+                    <div class="pitch-lines"></div>
+                    <div class="pitch-center-line"></div>
+                    <div class="pitch-circle"></div>
+                    <div class="goal-left"></div>
+                    <div class="goal-right"></div>
+
+                    <!-- 11 Home Players (GK + 10 Outfield) -->
+                    <div id="hp-0" class="pitch-player home-token" style="top: 48%; left: 3%;" title="GK">GK</div>
+                    <div id="hp-1" class="pitch-player home-token" style="top: 20%; left: 20%;">2</div>
+                    <div id="hp-2" class="pitch-player home-token" style="top: 40%; left: 20%;">3</div>
+                    <div id="hp-3" class="pitch-player home-token" style="top: 60%; left: 20%;">4</div>
+                    <div id="hp-4" class="pitch-player home-token" style="top: 80%; left: 20%;">5</div>
+                    <div id="hp-5" class="pitch-player home-token" style="top: 30%; left: 40%;">6</div>
+                    <div id="hp-6" class="pitch-player home-token" style="top: 50%; left: 38%;">7</div>
+                    <div id="hp-7" class="pitch-player home-token" style="top: 70%; left: 40%;">8</div>
+                    <div id="hp-8" class="pitch-player home-token" style="top: 25%; left: 65%;">9</div>
+                    <div id="hp-9" class="pitch-player home-token" style="top: 50%; left: 68%;">10</div>
+                    <div id="hp-10" class="pitch-player home-token" style="top: 75%; left: 65%;">11</div>
+
+                    <!-- 11 Away Players (GK + 10 Outfield) -->
+                    <div id="ap-0" class="pitch-player away-token" style="top: 48%; right: 3%;" title="GK">GK</div>
+                    <div id="ap-1" class="pitch-player away-token" style="top: 20%; right: 20%;">2</div>
+                    <div id="ap-2" class="pitch-player away-token" style="top: 40%; right: 20%;">3</div>
+                    <div id="ap-3" class="pitch-player away-token" style="top: 60%; right: 20%;">4</div>
+                    <div id="ap-4" class="pitch-player away-token" style="top: 80%; right: 20%;">5</div>
+                    <div id="ap-5" class="pitch-player away-token" style="top: 30%; right: 40%;">6</div>
+                    <div id="ap-6" class="pitch-player away-token" style="top: 50%; right: 38%;">7</div>
+                    <div id="ap-7" class="pitch-player away-token" style="top: 70%; right: 40%;">8</div>
+                    <div id="ap-8" class="pitch-player away-token" style="top: 25%; right: 65%;">9</div>
+                    <div id="ap-9" class="pitch-player away-token" style="top: 50%; right: 68%;">10</div>
+                    <div id="ap-10" class="pitch-player away-token" style="top: 75%; right: 65%;">11</div>
+
+                    <!-- Moving Soccer Ball -->
+                    <div id="matchBall" class="football" style="top: 50%; left: 50%;"></div>
+                </div>
+
+                <!-- Written Commentary & Mute/Unmute Audio Toggle Button -->
+                <div class="w-full bg-gray-950/90 p-2.5 rounded-xl border border-gray-800 text-left mb-3 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <i class="fa-solid fa-microphone-lines text-yellow-400 text-sm animate-pulse flex-shrink-0"></i>
+                        <p id="commentaryBox" class="text-[11px] text-yellow-200 font-medium truncate">Match underway! Both sides locked in 11v11 battle...</p>
+                    </div>
+                    
+                    <!-- Commentary Audio Control Button -->
+                    <button id="toggleVoiceBtn" onclick="toggleCommentaryVoice()" class="px-2.5 py-1 rounded-lg bg-yellow-500/20 text-yellow-300 hover:bg-yellow-500/30 border border-yellow-500/40 text-[10px] font-bold transition flex items-center gap-1 flex-shrink-0">
+                        <i id="voiceIcon" class="fa-solid fa-volume-high"></i>
+                        <span id="voiceText">Unmuted</span>
+                    </button>
+                </div>
+
+                <!-- Next Sub Ready Card -->
+                <div class="w-full bg-gray-950/90 p-3 rounded-xl border border-yellow-500/40 text-left flex items-center justify-between">
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <div class="w-9 h-9 rounded-xl bg-yellow-500/20 text-yellow-400 flex items-center justify-center font-bold text-xs border border-yellow-500/30 flex-shrink-0">
+                            <i class="fa-solid fa-right-left"></i>
+                        </div>
+                        <div class="overflow-hidden">
+                            <span class="text-[9px] text-yellow-400 font-bold tracking-wider block">NEXT SUB UP [QUEUE HEAD]</span>
+                            <h3 id="nextSubTitle" class="text-xs font-extrabold text-white truncate">No player queued</h3>
+                        </div>
+                    </div>
+                    <button onclick="executeSubstitution()" class="px-3 py-2 rounded-xl bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 text-gray-950 font-extrabold text-xs shadow-lg transition active:scale-95 whitespace-nowrap flex-shrink-0">
+                        Make Sub ⚽
+                    </button>
+                </div>
+            </div>
+
+            <!-- Substitution Queue Structure Card (Target for First Queue Locator) -->
+            <div id="queueSectionCard" class="glass-panel p-4 rounded-2xl flex-1 flex flex-col border-yellow-500/30">
+                <div class="flex justify-between items-center mb-3 pb-2 border-b border-gray-800">
+                    <div>
+                        <h2 class="text-xs font-bold text-gray-100 flex items-center gap-2">
+                            <i class="fa-solid fa-list-ol text-yellow-400"></i>
+                            <span>Substitution Queue (FIFO Arrival Order)</span>
+                        </h2>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="queueCountBadge" class="bg-yellow-500/20 text-yellow-300 text-[10px] px-2 py-0.5 rounded-full border border-yellow-500/30 font-semibold">0 queued</span>
+                        <button onclick="clearQueue()" class="text-[10px] text-rose-400 hover:text-rose-300 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20 transition">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Queue List with Photos -->
+                <div id="queueContainer" class="flex-1 overflow-y-auto max-h-[140px] space-y-1.5 pr-1">
+                    <!-- Dynamic Queue items -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FIFO Queue Modal with Explanations & Goals -->
+    <div id="infoModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel bg-gray-900 border-gray-700 max-w-lg w-full rounded-2xl p-6 relative shadow-2xl">
+            <button onclick="closeInfoModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-10 h-10 rounded-xl bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-futbol"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-white" id="modalHeaderTitle">FIFO Queue Architecture & Goal</h3>
+                    <p class="text-xs text-yellow-400">Tactical Squad Management & Computer Science Fundamentals</p>
+                </div>
+            </div>
+            
+            <div class="space-y-3.5 text-xs text-gray-300 leading-relaxed max-h-[380px] overflow-y-auto pr-2">
+                
+                <div id="sectionGoal" class="bg-emerald-950/40 p-3 rounded-xl border border-emerald-500/30">
+                    <h4 class="text-emerald-400 font-bold mb-1"><i class="fa-solid fa-bullseye mr-1"></i> THE GOAL OF THE APP</h4>
+                    <p>The main goal of this application is to visually demonstrate <strong>First-In, First-Out (FIFO) Queue Data Structure operations</strong> through an interactive, real-time 11v11 African football match. It bridges theoretical computer science data structures with real-world sports subbing logic.</p>
+                </div>
+
+                <div id="sectionWhy" class="bg-yellow-950/30 p-3 rounded-xl border border-yellow-500/30">
+                    <h4 class="text-yellow-400 font-bold mb-1"><i class="fa-solid fa-circle-question mr-1"></i> WHY THE QUEUE IS NECESSARY</h4>
+                    <p>Queues guarantee order and fairness. During live, high-pressure match operations, multiple tactical changes take place. A FIFO Queue prevents chaotic subbing, eliminates race conditions, and ensures substitutes enter the pitch strictly in the precise chronological order they were instructed to warm up.</p>
+                </div>
+
+                <div id="sectionFor" class="bg-blue-950/30 p-3 rounded-xl border border-blue-500/30">
+                    <h4 class="text-blue-400 font-bold mb-1"><i class="fa-solid fa-list-check mr-1"></i> WHAT THE QUEUES ARE FOR</h4>
+                    <p>1. <strong>Index 0 (Front / Head):</strong> Holds the active substitute authorized to enter the match next.<br>
+                    2. <strong>Enqueue (Rear / Tail):</strong> Adds players warming up to the back of the queue.<br>
+                    3. <strong>Dequeue:</strong> Removes the head player when the substitution is triggered onto the pitch.</p>
+                </div>
+
+            </div>
+
+            <button onclick="closeInfoModal()" class="w-full mt-5 py-2.5 rounded-xl bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-bold text-xs transition">
+                Got It, Close Guide
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-800/80 py-4 px-6 text-center text-xs text-gray-500 glass-panel">
+        <p>African Nations Match Arena • Real Player Photos & Dual-Team FIFO Queue Architecture</p>
+    </footer>
+
+<script>
+    /* ==========================================================================
+       1. NATIONAL TEAMS DATABASE (Full 11 Starters + Real Player Photos & Subs)
+       ========================================================================== */
+    const africanNationsDatabase = {
+        'GH': {
+            name: 'Ghana', flag: '🇬🇭', opponentKey: 'NG', homeGoals: 0, awayGoals: 0,
+            squad: [
+                { id: 'gh-0', name: 'Ati-Zigi', position: 'GK', club: 'St. Gallen', number: '1', isOnField: true, photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-1', name: 'Lamptey', position: 'DEF', club: 'Brighton', number: '2', isOnField: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-2', name: 'Djiku', position: 'DEF', club: 'Fenerbahçe', number: '23', isOnField: true, photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-3', name: 'Salisu', position: 'DEF', club: 'Monaco', number: '4', isOnField: true, photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-4', name: 'Mensah', position: 'DEF', club: 'Auxerre', number: '14', isOnField: true, photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-5', name: 'Partey', position: 'MID', club: 'Arsenal', number: '5', isOnField: true, photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-6', name: 'Kudus', position: 'MID', club: 'West Ham', number: '20', isOnField: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-7', name: 'Owusu', position: 'MID', club: 'Auxerre', number: '21', isOnField: true, photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-8', name: 'Ayew', position: 'FWD', club: 'Leicester', number: '9', isOnField: true, photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-9', name: 'Williams', position: 'FWD', club: 'Bilbao', number: '19', isOnField: true, photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-10', name: 'Nuamah', position: 'FWD', club: 'Lyon', number: '17', isOnField: true, photo: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-11', name: 'Wollacott', position: 'GK', club: 'Crawley', number: '12', isOnField: false, photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-12', name: 'Seidu', position: 'DEF', club: 'Rennes', number: '18', isOnField: false, photo: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-13', name: 'Samed', position: 'MID', club: 'Lens', number: '6', isOnField: false, photo: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&auto=format&fit=crop&q=80' },
+                { id: 'gh-14', name: 'Semenyo', position: 'FWD', club: 'Bournemouth', number: '11', isOnField: false, photo: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=100&auto=format&fit=crop&q=80' }
+            ]
+        },
+        'NG': {
+            name: 'Nigeria', flag: '🇳🇬', opponentKey: 'GH', homeGoals: 0, awayGoals: 0,
+            squad: [
+                { id: 'ng-0', name: 'Nwabali', position: 'GK', club: 'Chippa', number: '23', isOnField: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-1', name: 'Ekong', position: 'DEF', club: 'Al-Kholood', number: '5', isOnField: true, photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-2', name: 'Bassey', position: 'DEF', club: 'Fulham', number: '21', isOnField: true, photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-3', name: 'Ajayi', position: 'DEF', club: 'West Brom', number: '6', isOnField: true, photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-4', name: 'Aina', position: 'DEF', club: 'Nottm Forest', number: '2', isOnField: true, photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-5', name: 'Ndidi', position: 'MID', club: 'Leicester', number: '4', isOnField: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-6', name: 'Iwobi', position: 'MID', club: 'Fulham', number: '17', isOnField: true, photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-7', name: 'Onyeka', position: 'MID', club: 'Augsburg', number: '8', isOnField: true, photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-8', name: 'Osimhen', position: 'FWD', club: 'Galatasaray', number: '9', isOnField: true, photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-9', name: 'Lookman', position: 'FWD', club: 'Atalanta', number: '11', isOnField: true, photo: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-10', name: 'Chukwueze', position: 'FWD', club: 'AC Milan', number: '7', isOnField: true, photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-11', name: 'Uzoho', position: 'GK', club: 'Omonia', number: '1', isOnField: false, photo: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-12', name: 'Osayi', position: 'DEF', club: 'Fenerbahçe', number: '12', isOnField: false, photo: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-13', name: 'Iheanacho', position: 'FWD', club: 'Sevilla', number: '14', isOnField: false, photo: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ng-14', name: 'Boniface', position: 'FWD', club: 'Leverkusen', number: '22', isOnField: false, photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80' }
+            ]
+        },
+        'SN': {
+            name: 'Senegal', flag: '🇸🇳', opponentKey: 'MA', homeGoals: 0, awayGoals: 0,
+            squad: [
+                { id: 'sn-0', name: 'Mendy', position: 'GK', club: 'Al-Ahli', number: '16', isOnField: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-1', name: 'Koulibaly', position: 'DEF', club: 'Al-Hilal', number: '3', isOnField: true, photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-2', name: 'Diallo', position: 'DEF', club: 'Al-Arabi', number: '22', isOnField: true, photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-3', name: 'Jakobs', position: 'DEF', club: 'Galatasaray', number: '14', isOnField: true, photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-4', name: 'Diatta', position: 'DEF', club: 'Monaco', number: '12', isOnField: true, photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-5', name: 'Sarr', position: 'MID', club: 'Tottenham', number: '17', isOnField: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-6', name: 'Gueye', position: 'MID', club: 'Everton', number: '5', isOnField: true, photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-7', name: 'Camara', position: 'MID', club: 'Monaco', number: '25', isOnField: true, photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-8', name: 'Mané', position: 'FWD', club: 'Al-Nassr', number: '10', isOnField: true, photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-9', name: 'Sarr', position: 'FWD', club: 'Crystal Palace', number: '18', isOnField: true, photo: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-10', name: 'Jackson', position: 'FWD', club: 'Chelsea', number: '7', isOnField: true, photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-11', name: 'Diaw', position: 'GK', club: 'Clermont', number: '23', isOnField: false, photo: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-12', name: 'Ciss', position: 'MID', club: 'Rayo', number: '6', isOnField: false, photo: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&auto=format&fit=crop&q=80' },
+                { id: 'sn-13', name: 'Ndiaye', position: 'FWD', club: 'Everton', number: '13', isOnField: false, photo: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=100&auto=format&fit=crop&q=80' }
+            ]
+        },
+        'MA': {
+            name: 'Morocco', flag: '🇲🇦', opponentKey: 'SN', homeGoals: 0, awayGoals: 0,
+            squad: [
+                { id: 'ma-0', name: 'Bounou', position: 'GK', club: 'Al-Hilal', number: '1', isOnField: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-1', name: 'Hakimi', position: 'DEF', club: 'PSG', number: '2', isOnField: true, photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-2', name: 'Aguerd', position: 'DEF', club: 'Real Sociedad', number: '5', isOnField: true, photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-3', name: 'Saïss', position: 'DEF', club: 'Al-Shabab', number: '6', isOnField: true, photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-4', name: 'Mazraoui', position: 'DEF', club: 'Man Utd', number: '3', isOnField: true, photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-5', name: 'Amrabat', position: 'MID', club: 'Fenerbahçe', number: '4', isOnField: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-6', name: 'Ounahi', position: 'MID', club: 'Panathinaikos', number: '8', isOnField: true, photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-7', name: 'Díaz', position: 'MID', club: 'Real Madrid', number: '10', isOnField: true, photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-8', name: 'Ziyech', position: 'FWD', club: 'Galatasaray', number: '7', isOnField: true, photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-9', name: 'En-Nesyri', position: 'FWD', club: 'Fenerbahçe', number: '19', isOnField: true, photo: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-10', name: 'Ezzalzouli', position: 'FWD', club: 'Real Betis', number: '16', isOnField: true, photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-11', name: 'Mohamedi', position: 'GK', club: 'Berkane', number: '12', isOnField: false, photo: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-12', name: 'Richardson', position: 'MID', club: 'Fiorentina', number: '14', isOnField: false, photo: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ma-13', name: 'Rahimi', position: 'FWD', club: 'Al Ain', number: '9', isOnField: false, photo: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=100&auto=format&fit=crop&q=80' }
+            ]
+        },
+        'EG': {
+            name: 'Egypt', flag: '🇪🇬', opponentKey: 'CI', homeGoals: 0, awayGoals: 0,
+            squad: [
+                { id: 'eg-0', name: 'El Shenawy', position: 'GK', club: 'Al Ahly', number: '1', isOnField: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-1', name: 'Hany', position: 'DEF', club: 'Al Ahly', number: '3', isOnField: true, photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-2', name: 'Rabia', position: 'DEF', club: 'Al Ahly', number: '6', isOnField: true, photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-3', name: 'Abdelmonem', position: 'DEF', club: 'Nice', number: '2', isOnField: true, photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-4', name: 'Fatouh', position: 'DEF', club: 'Zamalek', number: '13', isOnField: true, photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-5', name: 'Attia', position: 'MID', club: 'Al Ahly', number: '17', isOnField: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-6', name: 'Ashour', position: 'MID', club: 'Al Ahly', number: '8', isOnField: true, photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-7', name: 'Trezeguet', position: 'MID', club: 'Al-Rayyan', number: '7', isOnField: true, photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-8', name: 'Salah', position: 'FWD', club: 'Liverpool', number: '10', isOnField: true, photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-9', name: 'Mostafa', position: 'FWD', club: 'Nantes', number: '19', isOnField: true, photo: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-10', name: 'Marmoush', position: 'FWD', club: 'Frankfurt', number: '22', isOnField: true, photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-11', name: 'Shobeir', position: 'GK', club: 'Al Ahly', number: '16', isOnField: false, photo: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-12', name: 'Fathi', position: 'MID', club: 'Al-Wakrah', number: '5', isOnField: false, photo: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&auto=format&fit=crop&q=80' },
+                { id: 'eg-13', name: 'Zizo', position: 'MID', club: 'Zamalek', number: '14', isOnField: false, photo: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=100&auto=format&fit=crop&q=80' }
+            ]
+        },
+        'CI': {
+            name: 'Ivory Coast', flag: '🇨🇮', opponentKey: 'EG', homeGoals: 0, awayGoals: 0,
+            squad: [
+                { id: 'ci-0', name: 'Fofana', position: 'GK', club: 'Angers', number: '1', isOnField: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-1', name: 'Konan', position: 'DEF', club: 'Al-Fayha', number: '3', isOnField: true, photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-2', name: 'Ndicka', position: 'DEF', club: 'Roma', number: '21', isOnField: true, photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-3', name: 'Kossounou', position: 'DEF', club: 'Atalanta', number: '7', isOnField: true, photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-4', name: 'Singo', position: 'DEF', club: 'Monaco', number: '17', isOnField: true, photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-5', name: 'Fofana', position: 'MID', club: 'Al-Ettifaq', number: '6', isOnField: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-6', name: 'Kessié', position: 'MID', club: 'Al-Ahli', number: '8', isOnField: true, photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-7', name: 'Sangaré', position: 'MID', club: 'Nottm Forest', number: '18', isOnField: true, photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-8', name: 'Adingra', position: 'FWD', club: 'Brighton', number: '11', isOnField: true, photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-9', name: 'Haller', position: 'FWD', club: 'Leganés', number: '22', isOnField: true, photo: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-10', name: 'Diakité', position: 'FWD', club: 'Reims', number: '24', isOnField: true, photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-11', name: 'Badra', position: 'GK', club: 'Sekhukhune', number: '16', isOnField: false, photo: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-12', name: 'Boly', position: 'DEF', club: 'Nottm Forest', number: '5', isOnField: false, photo: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&auto=format&fit=crop&q=80' },
+                { id: 'ci-13', name: 'Pépé', position: 'FWD', club: 'Villarreal', number: '19', isOnField: false, photo: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=100&auto=format&fit=crop&q=80' }
+            ]
+        },
+        'CM': {
+            name: 'Cameroon', flag: '🇨🇲', opponentKey: 'DZ', homeGoals: 0, awayGoals: 0,
+            squad: [
+                { id: 'cm-0', name: 'Onana', position: 'GK', club: 'Man Utd', number: '23', isOnField: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-1', name: 'Tolo', position: 'DEF', club: 'Seattle', number: '3', isOnField: true, photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-2', name: 'Wooh', position: 'DEF', club: 'Rennes', number: '21', isOnField: true, photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-3', name: 'Ngadeu', position: 'DEF', club: 'Beijing', number: '4', isOnField: true, photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-4', name: 'Tchatchoua', position: 'DEF', club: 'Verona', number: '12', isOnField: true, photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-5', name: 'Anguissa', position: 'MID', club: 'Napoli', number: '8', isOnField: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-6', name: 'Baleba', position: 'MID', club: 'Brighton', number: '14', isOnField: true, photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-7', name: 'Kemen', position: 'MID', club: 'Başakşehir', number: '22', isOnField: true, photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-8', name: 'Mbeumo', position: 'FWD', club: 'Brentford', number: '20', isOnField: true, photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-9', name: 'Aboubakar', position: 'FWD', club: 'Hatayspor', number: '10', isOnField: true, photo: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-10', name: 'N\'Koudou', position: 'FWD', club: 'Damac', number: '11', isOnField: true, photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-11', name: 'Epassy', position: 'GK', club: 'Karagümrük', number: '1', isOnField: false, photo: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-12', name: 'Tchato', position: 'DEF', club: 'Montpellier', number: '17', isOnField: false, photo: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&auto=format&fit=crop&q=80' },
+                { id: 'cm-13', name: 'Magri', position: 'FWD', club: 'Toulouse', number: '13', isOnField: false, photo: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=100&auto=format&fit=crop&q=80' }
+            ]
+        },
+        'DZ': {
+            name: 'Algeria', flag: '🇩🇿', opponentKey: 'CM', homeGoals: 0, awayGoals: 0,
+            squad: [
+                { id: 'dz-0', name: 'Mandréa', position: 'GK', club: 'Caen', number: '23', isOnField: true, photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-1', name: 'Atal', position: 'DEF', club: 'Al-Sadd', number: '20', isOnField: true, photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-2', name: 'Bensebaini', position: 'DEF', club: 'Dortmund', number: '21', isOnField: true, photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-3', name: 'Mandi', position: 'DEF', club: 'Lille', number: '2', isOnField: true, photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-4', name: 'Aït-Nouri', position: 'DEF', club: 'Wolverhampton', number: '15', isOnField: true, photo: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-5', name: 'Bennacer', position: 'MID', club: 'AC Milan', number: '6', isOnField: true, photo: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-6', name: 'Aouar', position: 'MID', club: 'Al-Ittihad', number: '8', isOnField: true, photo: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-7', name: 'Chaïbi', position: 'MID', club: 'Frankfurt', number: '14', isOnField: true, photo: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-8', name: 'Mahrez', position: 'FWD', club: 'Al-Ahli', number: '7', isOnField: true, photo: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-9', name: 'Bounedjah', position: 'FWD', club: 'Al-Shamal', number: '9', isOnField: true, photo: 'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-10', name: 'Amoura', position: 'FWD', club: 'Wolfsburg', number: '18', isOnField: true, photo: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-11', name: 'Oukidja', position: 'GK', club: 'Metz', number: '16', isOnField: false, photo: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-12', name: 'Hadjam', position: 'DEF', club: 'Young Boys', number: '3', isOnField: false, photo: 'https://images.unsplash.com/photo-1463453091185-61582044d556?w=100&auto=format&fit=crop&q=80' },
+                { id: 'dz-13', name: 'Gouiri', position: 'FWD', club: 'Rennes', number: '11', isOnField: false, photo: 'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?w=100&auto=format&fit=crop&q=80' }
+            ]
+        }
+    };
+
+    /* ==========================================================================
+       2. APP STATE & SIMULATION ENGINES
+       ========================================================================== */
+    let currentHomeKey = 'GH';
+    let currentOpponentKey = 'NG';
+    let viewingTeamKey = 'GH';
+    let subQueue = [];
+    let matchMinute = 12;
+    let matchInterval = null;
+    let scorersList = [];
+    let matchEnded = false;
+    let commentaryVoiceMuted = false; // Mute / Unmute state
+
+    window.onload = () => {
+        changeMatchFixture();
+        startMatchSimulation();
+    };
+
+    function toggleCommentaryVoice() {
+        commentaryVoiceMuted = !commentaryVoiceMuted;
+        const iconElem = document.getElementById('voiceIcon');
+        const textElem = document.getElementById('voiceText');
+
+        if (commentaryVoiceMuted) {
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            iconElem.className = 'fa-solid fa-volume-xmark text-rose-400';
+            textElem.textContent = 'Muted';
+            showToast('Commentary voice muted');
+        } else {
+            iconElem.className = 'fa-solid fa-volume-high text-yellow-400';
+            textElem.textContent = 'Unmuted';
+            showToast('Commentary voice unmuted');
+        }
+    }
+
+    function scrollToFirstQueue() {
+        const queueElem = document.getElementById('queueSectionCard');
+        if (queueElem) {
+            queueElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            queueElem.classList.add('ring-2', 'ring-yellow-400');
+            setTimeout(() => queueElem.classList.remove('ring-2', 'ring-yellow-400'), 2500);
+
+            if (subQueue.length > 0) {
+                showToast(`FIRST QUEUE HEAD [Index 0]: ${subQueue[0].name} (#${subQueue[0].number}) - Ready to enter pitch next!`);
+            } else {
+                showToast(`Queue is empty! Add a bench player to establish the first queue position.`);
+            }
+        }
+    }
+
+    function changeMatchFixture() {
+        const selectElem = document.getElementById('homeCountrySelect');
+        currentHomeKey = selectElem.value;
+        const homeNation = africanNationsDatabase[currentHomeKey];
+        currentOpponentKey = homeNation.opponentKey;
+        const oppNation = africanNationsDatabase[currentOpponentKey];
+
+        viewingTeamKey = currentHomeKey;
+
+        homeNation.homeGoals = Math.floor(Math.random() * 3);
+        oppNation.awayGoals = Math.floor(Math.random() * 3);
+        matchMinute = Math.floor(Math.random() * 25) + 10;
+        scorersList = [];
+        matchEnded = false;
+
+        document.getElementById('opponentNameText').textContent = `${oppNation.flag} ${oppNation.name}`;
+        document.getElementById('pitchHomeName').innerHTML = `${homeNation.flag} ${homeNation.name}`;
+        document.getElementById('pitchAwayName').innerHTML = `${oppNation.flag} ${oppNation.name}`;
+        document.getElementById('matchStatusBadge').textContent = 'AFCON QUALIFIER LIVE';
+
+        subQueue = [];
+        const benchPlayers = homeNation.squad.filter(p => !p.isOnField);
+        if (benchPlayers.length >= 2) {
+            subQueue.push(benchPlayers[0]);
+            subQueue.push(benchPlayers[1]);
+        }
+
+        updateUIEverything();
+    }
+
+    function toggleTeamInspection() {
+        viewingTeamKey = (viewingTeamKey === currentHomeKey) ? currentOpponentKey : currentHomeKey;
+        updateUIEverything();
+        const viewingNation = africanNationsDatabase[viewingTeamKey];
+        showToast(`Now inspecting ${viewingNation.name} properties, squad & ratings!`);
+    }
+
+    function updateUIEverything() {
+        const viewingNation = africanNationsDatabase[viewingTeamKey];
+
+        document.getElementById('viewingTeamBadge').textContent = `Viewing Properties: ${viewingNation.name}`;
+        document.getElementById('rosterTitle').innerHTML = `<i class="fa-solid fa-users text-yellow-400"></i><span>${viewingNation.name} Squad Bench</span>`;
+        document.getElementById('ratingsBoardTitle').innerHTML = `<i class="fa-solid fa-star-half-stroke text-yellow-400"></i><span>${viewingNation.name} Ratings Board</span>`;
+
+        renderRatingsBoard();
+        renderRoster();
+        renderQueue();
+        updateScoreboardUI();
+    }
+
+    /* ==========================================================================
+       3. RATINGS BOARD
+       ========================================================================== */
+    function renderRatingsBoard() {
+        const nation = africanNationsDatabase[viewingTeamKey];
+        const starters = nation.squad.filter(p => p.isOnField);
+        
+        const ratedStarters = starters.map(p => ({
+            ...p,
+            rating: parseFloat((Math.random() * (8.5 - 5.6) + 5.6).toFixed(1))
+        }));
+
+        ratedStarters.sort((a, b) => b.rating - a.rating);
+        const highestId = ratedStarters[0].id;
+        const lowestId = ratedStarters[ratedStarters.length - 1].id;
+
+        const container = document.getElementById('ratingsContainer');
+        container.innerHTML = ratedStarters.map(player => {
+            let badges = '';
+            if (player.id === highestId) badges += '<span class="text-xs ml-1" title="Top Rated">✨</span>';
+            if (player.id === lowestId) badges += '<span class="text-xs ml-1 text-red-500 font-bold" title="Lowest Rated">🔴</span>';
+            if (scorersList.includes(player.name)) badges += '<span class="text-xs ml-1" title="Goal Scorer">⚽</span>';
+
+            return `
+                <div class="glass-card p-2.5 rounded-xl flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5 overflow-hidden">
+                        <img src="${player.photo}" alt="${player.name}" class="w-9 h-9 rounded-full object-cover border border-yellow-500/40 flex-shrink-0">
+                        <div class="overflow-hidden">
+                            <h4 class="text-xs font-bold text-gray-100 truncate">${escapeHtml(player.name)} ${badges}</h4>
+                            <p class="text-[10px] text-gray-400 truncate">${player.position} • #${player.number} • ${player.club}</p>
+                        </div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <span class="text-xs font-black text-yellow-400">${player.rating}</span>
+                        <p class="text-[9px] text-gray-500">Rating</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /* ==========================================================================
+       4. LIVE MATCH SIMULATION, 11v11 PITCH & MULTILINGUAL MALE VOICE COMMENTARY
+       ========================================================================== */
+    function startMatchSimulation() {
+        if (matchInterval) clearInterval(matchInterval);
+
+        matchInterval = setInterval(() => {
+            if (matchEnded) return;
+
+            matchMinute += Math.floor(Math.random() * 3) + 1;
+            
+            if (matchMinute >= 95) {
+                matchMinute = 95;
+                matchEnded = true;
+                document.getElementById('matchClock').textContent = `95' FT`;
+                document.getElementById('matchStatusBadge').textContent = 'FULL TIME - MATCH ENDED';
+                const ftMsg = `Full time! The match has concluded after 95 minutes. Select another fixture to play again.`;
+                document.getElementById('commentaryBox').textContent = ftMsg;
+                speakCommentary(ftMsg, 'en');
+                clearInterval(matchInterval);
+                return;
+            }
+
+            document.getElementById('matchClock').textContent = `${matchMinute}' MIN`;
+
+            animatePitchAction();
+            triggerMatchCommentary();
+
+        }, 3500);
+    }
+
+    function animatePitchAction() {
+        const ball = document.getElementById('matchBall');
+        
+        const randX = Math.floor(Math.random() * 75) + 12;
+        const randY = Math.floor(Math.random() * 70) + 15;
+        ball.style.top = `${randY}%`;
+        ball.style.left = `${randX}%`;
+
+        for (let i = 0; i <= 10; i++) {
+            const hp = document.getElementById(`hp-${i}`);
+            const ap = document.getElementById(`ap-${i}`);
+            if (hp) {
+                hp.style.top = `${Math.min(88, Math.max(8, parseInt(hp.style.top || 50) + (Math.random() * 12 - 6)))}%`;
+                hp.style.left = `${Math.min(85, Math.max(3, parseInt(hp.style.left || 50) + (Math.random() * 12 - 6)))}%`;
+            }
+            if (ap) {
+                ap.style.top = `${Math.min(88, Math.max(8, parseInt(ap.style.top || 50) + (Math.random() * 12 - 6)))}%`;
+                ap.style.right = `${Math.min(85, Math.max(3, parseInt(ap.style.right || 50) + (Math.random() * 12 - 6)))}%`;
+            }
+        }
+    }
+
+    function triggerMatchCommentary() {
+        const homeNation = africanNationsDatabase[currentHomeKey];
+        const oppNation = africanNationsDatabase[currentOpponentKey];
+        
+        const isHomeTeamActive = Math.random() > 0.5;
+        const activeNation = isHomeTeamActive ? homeNation : oppNation;
+        const starters = activeNation.squad.filter(p => p.isOnField);
+        const player1 = starters[Math.floor(Math.random() * starters.length)].name;
+        const player2 = starters[Math.floor(Math.random() * starters.length)].name;
+
+        const langs = ['en', 'twi', 'fr'];
+        const chosenLang = langs[Math.floor(Math.random() * langs.length)];
+
+        let textEvent = '';
+        if (chosenLang === 'twi') {
+            const twiEvents = [
+                `${player1} de bɔɔl no kɔ hyɛ corner akyir hɔ!`,
+                `Aane! ${player1} ne ${player2} bɔɔl di asi yie wɔ mfimfini hɔ, nanso ɔtɔɔ ase na ɔfoforo faa bɔɔl no!`,
+                `Tox! ${player1} twene bɔɔl no kɔ anim yie paa!`
+            ];
+            textEvent = twiEvents[Math.floor(Math.random() * twiEvents.length)];
+        } else if (chosenLang === 'fr') {
+            const frEvents = [
+                `Magnifique! ${player1} mène le ballon vers le coin du terrain!`,
+                `Duel intense au milieu de terrain! Un joueur perd le ballon et l'adversaire le récupère immédiatement.`,
+                `Superbe passe en profondeur de ${player1}!`
+            ];
+            textEvent = frEvents[Math.floor(Math.random() * frEvents.length)];
+        } else {
+            const enEvents = [
+                `${player1} dribbles down the flank and places the ball neatly into the corner flag area!`,
+                `Tight pressure in midfield! ${player1} fails to control, and ${player2} steps in instantly to take possession!`,
+                `Splendid one-two passing sequence by ${activeNation.name} near the penalty arc.`
+            ];
+            textEvent = enEvents[Math.floor(Math.random() * enEvents.length)];
+        }
+
+        document.getElementById('commentaryBox').textContent = textEvent;
+        speakCommentary(textEvent, chosenLang);
+
+        if (Math.random() < 0.22 && matchMinute < 88) {
+            const scorer = player1;
+            if (!scorersList.includes(scorer)) scorersList.push(scorer);
+
+            let goalText = '';
+            if (isHomeTeamActive) {
+                homeNation.homeGoals++;
+                goalText = `GOAL! ⚽ ${scorer} scores a magnificent strike for ${homeNation.name}!`;
+            } else {
+                oppNation.awayGoals++;
+                goalText = `GOAL! ⚽ ${scorer} scores through the net for ${oppNation.name}!`;
+            }
+            document.getElementById('commentaryBox').textContent = goalText;
+            speakCommentary(goalText, 'en');
+            updateScoreboardUI();
+            renderRatingsBoard();
+        }
+    }
+
+    function speakCommentary(text, lang) {
+        if (commentaryVoiceMuted) return; // Mute check
+
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.05;
+            utterance.pitch = 0.95;
+
+            if (lang === 'fr') utterance.lang = 'fr-FR';
+            else utterance.lang = 'en-GB';
+
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    function updateScoreboardUI() {
+        const homeNation = africanNationsDatabase[currentHomeKey];
+        const oppNation = africanNationsDatabase[currentOpponentKey];
+        document.getElementById('scoreDisplay').textContent = `${homeNation.homeGoals} - ${oppNation.awayGoals}`;
+    }
+
+    /* ==========================================================================
+       5. BACKGROUND MUSIC UPLOADER
+       ========================================================================== */
+    function handleMusicUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        document.getElementById('audioFileName').textContent = file.name;
+        const audioElem = document.getElementById('matchAudio');
+        audioElem.src = URL.createObjectURL(file);
+        audioElem.play().then(() => {
+            showToast('Match background music playing!');
+        }).catch(() => {
+            showToast('Click play on audio controls if blocked.');
+        });
+    }
+
+    /* ==========================================================================
+       6. FIFO QUEUE & SUBSTITUTION ENGINE
+       ========================================================================== */
+    function enqueuePlayer(player) {
+        if (player.isOnField) {
+            showToast(`${player.name} is already on the field!`);
+            return;
+        }
+        if (subQueue.some(p => p.id === player.id)) {
+            showToast(`${player.name} is already in the queue.`);
+            return;
+        }
+
+        subQueue.push(player);
+        renderQueue();
+        showToast(`Queued ${player.name} to rear of substitution queue`);
+    }
+
+    function subNextPlayer(player) {
+        if (player.isOnField) return;
+        subQueue = subQueue.filter(p => p.id !== player.id);
+        subQueue.unshift(player);
+        renderQueue();
+        showToast(`Set ${player.name} as Next Sub Up (Index 0)!`);
+    }
+
+    function executeSubstitution() {
+        if (subQueue.length === 0) {
+            showToast('Substitution queue is empty! Add players from bench.');
+            return;
+        }
+
+        const nation = africanNationsDatabase[currentHomeKey];
+        const subIn = subQueue.shift();
+
+        const fieldPlayerIndex = nation.squad.findIndex(p => p.isOnField && p.position === subIn.position) !== -1 ?
+                                 nation.squad.findIndex(p => p.isOnField && p.position === subIn.position) :
+                                 nation.squad.findIndex(p => p.isOnField);
+
+        if (fieldPlayerIndex !== -1) {
+            const subOut = nation.squad[fieldPlayerIndex];
+            subOut.isOnField = false;
+            subIn.isOnField = true;
+
+            renderRoster();
+            renderRatingsBoard();
+            renderQueue();
+
+            const subText = `Tactical Sub: ${subIn.name} replaces ${subOut.name}`;
+            document.getElementById('commentaryBox').textContent = subText;
+            speakCommentary(subText, 'en');
+            showToast(`🔄 SUB: ${subIn.name} replaces ${subOut.name}`);
+        }
+    }
+
+    function deleteFromQueue(index) {
+        subQueue.splice(index, 1);
+        renderQueue();
+        showToast('Removed player from queue');
+    }
+
+    function moveQueueItem(index, direction) {
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= subQueue.length) return;
+        const temp = subQueue[index];
+        subQueue[index] = subQueue[newIndex];
+        subQueue[newIndex] = temp;
+        renderQueue();
+    }
+
+    function clearQueue() {
+        subQueue = [];
+        renderQueue();
+        showToast('Substitution queue cleared');
+    }
+
+    /* ==========================================================================
+       7. RENDERERS
+       ========================================================================== */
+    function renderRoster() {
+        const nation = africanNationsDatabase[viewingTeamKey];
+        const benchPlayers = nation.squad.filter(p => !p.isOnField);
+        const container = document.getElementById('rosterContainer');
+        document.getElementById('rosterCount').textContent = `${benchPlayers.length} on bench`;
+
+        if (benchPlayers.length === 0) {
+            container.innerHTML = `<div class="col-span-2 text-center py-5 text-gray-500 text-xs">All squad members deployed on field.</div>`;
+            return;
+        }
+
+        container.innerHTML = benchPlayers.map(player => `
+            <div class="glass-card p-2.5 rounded-xl flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 overflow-hidden">
+                    <img src="${player.photo}" alt="${player.name}" class="w-8 h-8 rounded-full object-cover border border-yellow-500/40 flex-shrink-0">
+                    <div class="overflow-hidden">
+                        <h4 class="text-xs font-bold text-gray-100 truncate">${escapeHtml(player.name)}</h4>
+                        <p class="text-[9px] text-gray-400">${player.position} • Sub</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                    <button onclick='subNextPlayer(${JSON.stringify(player)})' class="px-2 py-1 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-semibold hover:bg-emerald-500/30">Next</button>
+                    <button onclick='enqueuePlayer(${JSON.stringify(player)})' class="px-2 py-1 rounded bg-yellow-500 text-gray-950 text-[10px] font-bold hover:bg-yellow-400">Queue</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function renderQueue() {
+        const container = document.getElementById('queueContainer');
+        document.getElementById('queueCountBadge').textContent = `${subQueue.length} queued`;
+        const nextSubTitle = document.getElementById('nextSubTitle');
+
+        if (subQueue.length > 0) {
+            nextSubTitle.textContent = `${subQueue[0].name} (#${subQueue[0].number})`;
+        } else {
+            nextSubTitle.textContent = 'No player queued';
+            container.innerHTML = `<div class="text-center py-3 text-gray-500 text-xs italic border border-dashed border-gray-800 rounded-xl">Substitution queue is empty.</div>`;
+            return;
+        }
+
+        container.innerHTML = subQueue.map((player, idx) => {
+            const isNextUp = idx === 0;
+            const badgeClass = isNextUp ? 'bg-emerald-500 text-gray-950 font-extrabold' : 'bg-gray-800 text-gray-400';
+            const badgeLabel = isNextUp ? 'FIRST QUEUE [0]' : `Arrival [${idx}]`;
+
+            return `
+                <div class="glass-card p-2 rounded-xl flex items-center justify-between gap-2 border ${isNextUp ? 'border-emerald-500/40 bg-emerald-950/20' : ''}">
+                    <div class="flex items-center gap-2.5 overflow-hidden">
+                        <img src="${player.photo}" alt="${player.name}" class="w-7 h-7 rounded-full object-cover border border-yellow-500/40 flex-shrink-0">
+                        <span class="text-[9px] px-1.5 py-0.5 rounded ${badgeClass}">${badgeLabel}</span>
+                        <div class="overflow-hidden">
+                            <h5 class="text-xs font-semibold text-gray-200 truncate">${escapeHtml(player.name)}</h5>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="moveQueueItem(${idx}, -1)" ${idx === 0 ? 'disabled class="opacity-30"' : 'class="hover:text-yellow-400"'} class="p-1 text-xs text-gray-400"><i class="fa-solid fa-chevron-up"></i></button>
+                        <button onclick="moveQueueItem(${idx}, 1)" ${idx === subQueue.length - 1 ? 'disabled class="opacity-30"' : 'class="hover:text-yellow-400"'} class="p-1 text-xs text-gray-400"><i class="fa-solid fa-chevron-down"></i></button>
+                        <button onclick="deleteFromQueue(${idx})" class="p-1 text-xs text-rose-400 hover:text-rose-300 ml-1"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /* ==========================================================================
+       8. UTILITY HELPERS
+       ========================================================================== */
+    function openInfoModal(focus) { 
+        document.getElementById('infoModal').classList.remove('hidden'); 
+        if (focus === 'why') {
+            document.getElementById('sectionWhy').scrollIntoView({ behavior: 'smooth' });
+        } else if (focus === 'for') {
+            document.getElementById('sectionGoal').scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+    
+    function closeInfoModal() { document.getElementById('infoModal').classList.add('hidden'); }
+
+    function showToast(msg) {
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 right-4 z-50 glass-panel bg-yellow-950/90 border border-yellow-500/40 text-yellow-200 text-xs px-4 py-2.5 rounded-xl shadow-xl transition-all duration-300';
+        toast.innerHTML = `<i class="fa-solid fa-futbol text-yellow-400 mr-2"></i>${escapeHtml(msg)}`;
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2200);
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
+
+</body>
+</html>
